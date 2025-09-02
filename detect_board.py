@@ -3,14 +3,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 
-IMAGE = "dataset/train/images/f041d3171dfe3137390c85fc5437e447_jpg.rf.19ada7673b1dc896c519b986a2bd428b.jpg"
-
 def deduplicate_points(points, eps):
+    #############################################
+    # Merge clusters of points using DBSCAN at 'eps' distance
+    #############################################
+
     if len(points) == 0:
         return []
+    
+    # Get clusters
     points_np = np.array(points, dtype=np.float32)
     clustering = DBSCAN(eps=eps, min_samples=1).fit(points_np)
     labels = clustering.labels_
+    
+    # Merge by centroid
     merged_points = []
     for label in set(labels):
         group = points_np[labels == label]
@@ -19,6 +25,11 @@ def deduplicate_points(points, eps):
     return merged_points
 
 def compute_intersection(rho1, theta1, rho2, theta2):
+    #############################################
+    # Compute intersection of two lines given in (rho, theta) form
+    #############################################
+
+    # Convert to Cartesian
     A = np.array([
         [np.cos(theta1), np.sin(theta1)],
         [np.cos(theta2), np.sin(theta2)]
@@ -26,10 +37,16 @@ def compute_intersection(rho1, theta1, rho2, theta2):
     b = np.array([[rho1], [rho2]])
     if np.linalg.matrix_rank(A) < 2:
         return None
+
+    # Solve linear system
     x0, y0 = np.linalg.solve(A, b)
     return int(x0.item()), int(y0.item())
 
 def sort_grid_geometrically(points, row_thresh=20):
+    #############################################
+    # Sort points into a grid based on geometric proximity
+    #############################################
+
     points = sorted(points, key=lambda p: p[1])
     rows = []
     for pt in points:
@@ -47,6 +64,11 @@ def sort_grid_geometrically(points, row_thresh=20):
     return grid
 
 def compute_homography_from_grid(grid):
+    #############################################
+    # Compute homography from detected grid points to ideal chessboard coordinates
+    #############################################
+
+    # Get source and destination points
     src_pts = []
     dst_pts = []
     for i, row in enumerate(grid):
@@ -56,15 +78,22 @@ def compute_homography_from_grid(grid):
 
     src_pts = np.array(src_pts, dtype=np.float32)
     dst_pts = np.array(dst_pts, dtype=np.float32)
+
+    # Use cv2 to computer homography and its inverse
     H, _ = cv2.findHomography(src_pts, dst_pts)
     H_inv, _ = cv2.findHomography(dst_pts, src_pts)
 
+    # Project grid points
     src_pts_h = np.concatenate([src_pts, np.ones((len(src_pts), 1))], axis=1)
     grid_projected = (H @ src_pts_h.T).T
 
     return grid_projected, H, H_inv
 
 def create_mask(image):
+    ##############################################
+    # Create a binary mask to isolate the chessboard from the background
+    ##############################################
+
     img = cv2.imread(image)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     lower_green = np.array([50, 40, 40])
@@ -78,6 +107,10 @@ def create_mask(image):
     return mask_clean
 
 def find_intersections(mask):
+    #############################################
+    # Detect lines using Hough Transform and compute their intersections
+    #############################################
+    
     edges = cv2.Canny(mask, 50, 150, apertureSize=3)
     lines = cv2.HoughLines(edges, 1, np.pi / 180, threshold=100)
     
