@@ -16,6 +16,13 @@ conda env create -f environment.yml
 conda activate <env-name>
 pip install -r requirements.txt
 ```
+Install most recent Stockfish distribution:
+```bash
+wget https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar
+tar -xvf stockfish-ubuntu-x86-64-avx2.tar
+sudo mv stockfish/stockfish-ubuntu-x86-64-avx2 /usr/local/bin/stockfish
+sudo chmod +x /usr/local/bin/stockfish
+```
 
 ## Usage
 
