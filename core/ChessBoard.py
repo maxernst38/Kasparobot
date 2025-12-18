@@ -103,7 +103,7 @@ class ChessBoard:
     
     # Functions to enable AI vision of 
     def detect_pieces(self, image):
-        model = YOLO("runs/train/chess_detection/weights/best.pt")
+        model = YOLO("model/Kasparobot.pt")
 
         results = model(image)
 
