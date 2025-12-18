@@ -7,8 +7,8 @@ import io
 from ultralytics import YOLO
 from stockfish import Stockfish
 
-from detect_board import *
-from map_pieces_to_board import *
+from core.detection.detect_board import *
+from core.detection.map_pieces_to_board import *
 
 class ChessBoard:
     def __init__(self, game_style="pvp-C", players=["Player 1", "Player 2"]):
@@ -103,7 +103,7 @@ class ChessBoard:
     
     # Functions to enable AI vision of 
     def detect_pieces(self, image):
-        model = YOLO("runs/train/custom_model/weights/best.pt")
+        model = YOLO("runs/train/chess_detection/weights/best.pt")
 
         results = model(image)
 
@@ -151,12 +151,12 @@ class ChessBoard:
 
         return '/'.join(fen_rows)
     
-    def update_from_image(self, image):
+    def update_from_image(self, image, board_orientation=90):
         pieces = self.detect_pieces(image)
 
         grid, H, H_inv = self.detect_board(image)
 
-        square_map = map_detections_to_squares(pieces, image, H)
+        square_map = map_detections_to_squares(pieces, image, H, board_orientation=board_orientation)
 
         fen = self.square_map_to_fen(square_map, self.class_to_piece)
         

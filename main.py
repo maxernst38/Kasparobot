@@ -1,4 +1,4 @@
-from ChessBoard import ChessBoard
+from core.ChessBoard import ChessBoard
 
 def display_help():
     """Displays the list of available commands."""

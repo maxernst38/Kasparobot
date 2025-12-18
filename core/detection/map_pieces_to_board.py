@@ -22,7 +22,7 @@ def warp_point(pt, H):
     x_px, y_px = warped[0,0]
     return x_px, y_px
 
-def map_detections_to_squares(detections, image_path, H):
+def map_detections_to_squares(detections, image_path, H, board_orientation=90):
     square_map = {}
     img = cv2.imread(image_path)
     img_h, img_w = img.shape[:2]
@@ -44,8 +44,22 @@ def map_detections_to_squares(detections, image_path, H):
         row = int(warped_y // 100) + 1
 
         if 0 <= col < 8 and 0 <= row < 8:
-            file = chr(ord('a') + col)
-            rank = 8 - row
+            # Map col/row to file/rank based on orientation
+            if board_orientation == 0:  # Standard: white bottom, black top
+                file = chr(ord('a') + col)
+                rank = 8 - row
+            elif board_orientation == 90:  # White left, black right
+                file = chr(ord('a') + row)
+                rank = col + 1
+            elif board_orientation == 180:  # White top, black bottom
+                file = chr(ord('a') + (7 - col))
+                rank = row + 1
+            elif board_orientation == 270:  # White right, black left
+                file = chr(ord('a') + (7 - row))
+                rank = 8 - col
+            else:
+                raise ValueError(f"Invalid orientation: {board_orientation}. Must be 0, 90, 180, or 270.")
+            
             square = f"{file}{rank}"
             square_map[square] = class_id
         else:
