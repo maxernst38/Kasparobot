@@ -22,10 +22,16 @@ def warp_point(pt, H):
     x_px, y_px = warped[0,0]
     return x_px, y_px
 
-def map_detections_to_squares(detections, image_path, H, board_orientation=90):
+def map_detections_to_squares(detections, image, H, board_orientation=90):
+    """Map detections onto squares through H (image pixels -> grid units).
+
+    `image` may be a path or an array; only its size is used.
+    """
     square_map = {}
-    img = cv2.imread(image_path)
-    img_h, img_w = img.shape[:2]
+    if hasattr(image, "shape"):
+        img_h, img_w = image.shape[:2]
+    else:
+        img_h, img_w = cv2.imread(image).shape[:2]
 
     for class_id, (cx, cy, w, h) in detections:
         # convert YOLO norm → pixel coords
@@ -41,7 +47,7 @@ def map_detections_to_squares(detections, image_path, H, board_orientation=90):
 
         # now floor-divide by square_px to get [0..7]
         col = int(warped_x // 100)
-        row = int(warped_y // 100) + 1
+        row = int(warped_y // 100)
 
         if 0 <= col < 8 and 0 <= row < 8:
             # Map col/row to file/rank based on orientation

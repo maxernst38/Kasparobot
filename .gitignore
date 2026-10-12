@@ -2,3 +2,12 @@ dataset/
 runs/
 yolo*
 stockfish*
+model/*.pt
+dataset_sim/
+sim/assets/*.xml
+sim/assets/*.png
+sim/assets/meshes/
+camera_view/
+__pycache__/
+*.pyc
+*.mp4

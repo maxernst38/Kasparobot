@@ -21,11 +21,11 @@ def train(data_yaml, model='yolo12m.pt', epochs=100, batch_size=16, img_size=640
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a YOLOv8 model on a custom dataset.")
-    parser.add_argument('--data_yaml', type=str, required=True, help="Path to the dataset's YAML file.")
+    parser.add_argument('--data_yaml', '--data-yaml', type=str, required=True, help="Path to the dataset's YAML file.")
     parser.add_argument('--model', type=str, default='yolo12m.pt', help="YOLO model variant")
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs.")
-    parser.add_argument('--batch_size', type=int, default=4, help="Batch size for training.")
-    parser.add_argument('--img_size', type=int, default=480, help="Image size for training (e.g., 640, 1280, etc.)")
+    parser.add_argument('--batch_size', '--batch-size', type=int, default=4, help="Batch size for training.")
+    parser.add_argument('--img_size', '--img-size', type=int, default=480, help="Image size for training (e.g., 640, 1280, etc.)")
 
     args = parser.parse_args()
 
