@@ -179,8 +179,6 @@ def main(argv=None):
                         f"(default {L.CAM_ELEVATION:g})")
     p.add_argument("--distance", type=float, default=None,
                    help=f"metres from the board centre (default {L.CAM_DISTANCE:g})")
-    p.add_argument("--plain", action="store_true",
-                   help="no grid or detection overlay")
     p.add_argument("--markers", action="store_true",
                    help="put the coloured type discs back on the pieces, which "
                         "is what the marker detector reads")
@@ -192,16 +190,16 @@ def main(argv=None):
     sim = ChessSim(fen=args.fen, verbose=False, markers=args.markers)
     if any(v is not None for v in (args.azimuth, args.elevation, args.distance)):
         sim.move_camera(args.azimuth, args.elevation, args.distance)
-    view = CameraView(sim, overlay=not args.plain, resolution=args.img_size,
+    view = CameraView(sim, resolution=args.img_size,
                       homography=args.homography)
     cv2.imwrite(args.out, view.frame())
     print(f"wrote {args.out}")
-    if not args.plain and view.detect:
+    if view.detect:
         print("read:", view.reader.read_fen(
             sim.capture(args.img_size, args.img_size, park=False)))
-    elif not args.plain:
-        print("(pieces are plain, so there is nothing for the marker detector "
-              "to read - add --markers)")
+    else:
+        print("(pieces are plain, so the marker detector has nothing to read "
+              "- add --markers)")
     sim.close()
 
 

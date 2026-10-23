@@ -328,9 +328,6 @@ def main(argv=None):
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--quick", action="store_true",
                    help="skip the physical pick-and-place and dataset checks")
-    p.add_argument("--tmpdir", default=None,
-                   help="where to build the throwaway dataset "
-                        "(default: a temporary directory)")
     args = p.parse_args(argv)
 
     import tempfile
@@ -352,7 +349,7 @@ def main(argv=None):
         check_physical(r, sim)
         print("\ndataset")
         with tempfile.TemporaryDirectory() as tmp:
-            check_dataset(r, args.tmpdir or tmp)
+            check_dataset(r, tmp)
     sim.close()
 
     print()

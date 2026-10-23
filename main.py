@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Play chess in the MuJoCo cell: the arm physically moves every piece.
 
-    python main.py                    # Stockfish vs Stockfish
-    python main.py --mode human       # you play White from the keyboard
-    python main.py --viewer           # interactive MuJoCo window
-    python main.py --video game.mp4   # record it
+    python main.py --weights runs/.../weights/best.pt
+    python main.py --weights ... --mode human        # you play White
+    python main.py --weights ... --camera-view       # watch the camera feed
+    python main.py --weights ... --video game.mp4    # record it
+
+Every game opens the MuJoCo window, runs at wall-clock speed, starts from the
+opening position and stops after 20 half-moves.  Each turn the position is read
+back off the camera with the trained detector and played from what was seen, so
+weights are required.
 
 Rendering needs a GL backend: MUJOCO_GL=glfw under WSLg, MUJOCO_GL=egl on a
 headless box with an NVIDIA driver.
@@ -19,30 +24,19 @@ import chess
 from core.stockfish_path import available, open_engine
 
 
+#: A game runs to this many half-moves unless it ends sooner.
+MAX_PLIES = 20
+
+
 def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--mode", choices=("stockfish", "human", "random"),
                    default="stockfish", help="who chooses the moves")
-    p.add_argument("--fen", default=None, help="starting position (default: new game)")
-    p.add_argument("--moves", type=int, default=20, help="maximum half-moves to play")
     p.add_argument("--depth", type=int, default=8, help="Stockfish search depth")
-    p.add_argument("--speed", type=float, default=0.45,
-                   help="tool travel speed, m/s")
-    p.add_argument("--viewer", action="store_true", help="open the MuJoCo window")
-    p.add_argument("--realtime", action="store_true",
-                   help="pace the simulation to wall clock (needs --viewer)")
     p.add_argument("--video", default=None, help="record an mp4 to this path")
-    p.add_argument("--detector", choices=("marker", "yolo"), default="marker",
-                   help="how --perceive reads the board: 'marker' uses the "
-                        "coloured crown discs, 'yolo' uses a trained detector "
-                        "through core.ChessBoard")
-    p.add_argument("--weights", default=None,
-                   help="detector weights for --detector yolo, e.g. "
-                        "runs/.../weights/best.pt")
-    p.add_argument("--markers", action="store_true",
-                   help="put the coloured type discs back on the pieces; the "
-                        "marker detector reads them, so --perceive needs this")
+    p.add_argument("--weights", required=True,
+                   help="trained detector weights, e.g. runs/.../weights/best.pt")
     p.add_argument("--camera-azimuth", type=float, default=None, metavar="DEG",
                    help="where the camera stands, in degrees around the board "
                         "from +x: 90 is over Black (default), 0 and 180 are "
@@ -55,17 +49,10 @@ def build_parser():
                    help="show what the board camera sees: live while the arm "
                         "moves, and with the detector's reading drawn on after "
                         "each move")
-    p.add_argument("--camera-save", default=None, metavar="DIR",
-                   help="also write one annotated frame per move into DIR")
     p.add_argument("--camera-homography", action="store_true",
                    help="add the flattened board view beside the camera view, "
                         "with a red dot and label where each detection was "
                         "mapped")
-    p.add_argument("--camera-plain", action="store_true",
-                   help="with --camera-view, show the raw image with no overlay")
-    p.add_argument("--perceive", action="store_true",
-                   help="read the position from the board camera each turn "
-                        "and play from what the camera sees")
     p.add_argument("--seed", type=int, default=0,
                    help="seed for random move choice and fallbacks")
     return p
@@ -92,12 +79,10 @@ def pick_move(args, sim, engine, rng, reader=None):
     if engine is None:
         return rng.choice(legal)
 
-    fen = sim.board.fen()
-    if args.perceive:
-        fen = perceived_fen(sim, reader)
-        if fen is None:
-            print("  camera could not read the board; falling back to game state")
-            fen = sim.board.fen()
+    fen = perceived_fen(sim, reader)
+    if fen is None:
+        print("  camera could not read the board; falling back to game state")
+        fen = sim.board.fen()
     engine.set_fen_position(fen)
     best = engine.get_best_move()
     if best is None:
@@ -107,13 +92,10 @@ def pick_move(args, sim, engine, rng, reader=None):
 
 
 def make_reader(sim, args):
-    """The perception backend named by --detector."""
-    from sim.perception import BoardCamera, MarkerPerception, YoloPerception
+    """The trained detector, reading the board through core.ChessBoard."""
+    from sim.perception import BoardCamera, YoloPerception
 
-    camera = BoardCamera.from_sim(sim)
-    if args.detector == "yolo":
-        return YoloPerception(args.weights, camera)
-    return MarkerPerception(camera)
+    return YoloPerception(args.weights, BoardCamera.from_sim(sim))
 
 
 def perceived_fen(sim, reader):
@@ -148,23 +130,7 @@ def main(argv=None):
 
     from sim.sim_env import ChessSim
 
-    if args.perceive or args.camera_homography:
-        if args.detector == "yolo" and not args.weights:
-            print("--detector yolo needs --weights pointing at a trained model,"
-                  "\n  e.g. runs/detect/runs/train/chess_detection/weights/best.pt")
-            return 2
-        if args.detector == "marker" and not args.markers:
-            print("the marker detector reads the coloured crown "
-                  "discs, which are off by default.\n"
-                  "  Add --markers, or use --detector yolo --weights ... with a "
-                  "model trained on simulated pieces.")
-            return 2
-    if args.detector == "yolo" and args.markers:
-        print("note: --markers paints discs on the pieces that a detector "
-              "trained on plain ones has never seen")
-
-    sim = ChessSim(fen=args.fen, viewer=args.viewer, realtime=args.realtime,
-                   speed=args.speed, markers=args.markers, verbose=True)
+    sim = ChessSim(viewer=True, realtime=True, verbose=True)
     if args.video:
         sim.start_recording(args.video)
 
@@ -173,22 +139,19 @@ def main(argv=None):
         sim.move_camera(args.camera_azimuth, args.camera_elevation,
                         args.camera_distance)
 
-    reader = (make_reader(sim, args)
-              if args.perceive or args.camera_homography else None)
+    reader = make_reader(sim, args)
 
     view = None
-    if args.camera_view or args.camera_save:
+    if args.camera_view:
         from sim.camera_view import CameraView
-        view = CameraView(sim, overlay=not args.camera_plain,
-                          save_dir=args.camera_save, reader=reader,
+        view = CameraView(sim, reader=reader,
                           homography=args.camera_homography)
-        if args.camera_view:
-            sim.attach_camera_view(view)
+        sim.attach_camera_view(view)
         view.update(tag="start")
 
     print(sim.board.unicode(invert_color=True, borders=False))
     try:
-        for ply in range(args.moves):
+        for ply in range(MAX_PLIES):
             if sim.board.is_game_over():
                 print(f"\ngame over: {sim.board.result()} "
                       f"({sim.board.outcome().termination.name.lower()})")
@@ -202,10 +165,9 @@ def main(argv=None):
             if view is not None:
                 view.update(tag=f"{ply + 1:03d}_{move.uci()}")
             print(sim.board.unicode(invert_color=True, borders=False))
-            if args.perceive:
-                seen = perceived_fen(sim, reader)
-                ok = seen is not None and seen.split()[0] == sim.board.board_fen()
-                print(f"    camera agrees with the game: {ok}")
+            seen = perceived_fen(sim, reader)
+            ok = seen is not None and seen.split()[0] == sim.board.board_fen()
+            print(f"    camera agrees with the game: {ok}")
     except KeyboardInterrupt:
         print("\ninterrupted")
     finally:
@@ -217,8 +179,6 @@ def main(argv=None):
         if args.video:
             sim.stop_recording()
             print("video written to", args.video)
-        if args.camera_save:
-            print("camera frames written to", args.camera_save)
         sim.close()
     return 0
 

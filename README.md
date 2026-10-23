@@ -51,16 +51,16 @@ one, or train your own from simulated frames (see [model/README.md](model/README
 ```bash
 python scripts/fetch_model.py <release asset URL>
 ```
-The simulator itself needs no weights: `python main.py --mode random --viewer` runs
-with nothing but the conda environment.
+`main.py` requires them. The rest of the simulator does not: `python -m sim.selftest` and
+`python -m sim.camera_view --markers` run with nothing but the conda environment.
 
 ## Usage
 
-`main.py` runs the simulator — see **Simulation** below for the full set of options. The
-quickest look at it, needing nothing but the environment:
+`main.py` runs a game in the simulator — see **Simulation** below. It needs trained weights;
+for a first look without any, render a still instead:
 
 ```bash
-MUJOCO_GL=glfw python main.py --mode random --viewer
+MUJOCO_GL=glfw python -m sim.camera_view --markers --out board.png
 ```
 
 ### Training the Model
@@ -89,7 +89,7 @@ that are only 30–45 px tall.
 
 Analyze a chess board image and get Stockfish recommendations:
 ```bash
-python get_stockfish_response.py [image.jpg]
+python get_stockfish_response.py board.jpg
 ```
 
 ---
@@ -110,24 +110,23 @@ drift out of step with the logical board — change `SQUARE` in `sim/board_layou
 texture is rebuilt to match.
 
 ```bash
-python main.py                      # Stockfish vs Stockfish, arm plays every move
-python main.py --mode random        # no engine needed
-python main.py --mode human         # you play White from the keyboard
-python main.py --viewer             # open the interactive MuJoCo window
-python main.py --camera-view        # watch what the board camera sees
-python main.py --video game.mp4     # record it
-python -m sim.selftest               # verify the whole stack
-
-# play from what the camera sees, rather than from the game state:
-python main.py --perceive --detector yolo --weights runs/.../weights/best.pt
-python main.py --perceive --markers   # or the built-in marker detector
+python main.py --weights runs/.../weights/best.pt      # Stockfish vs Stockfish
+python main.py --weights ... --mode human              # you play White
+python main.py --weights ... --camera-view             # watch the camera feed
+python main.py --weights ... --video game.mp4          # record it
+python -m sim.selftest                                 # verify the whole stack
 ```
+
+Every game opens the MuJoCo window, runs at wall-clock speed, starts from the opening
+position and stops after 20 half-moves — roughly seven minutes. Each turn the position is
+read back off the camera with the trained detector and played from what was seen, so
+`--weights` is required; see **Building a dataset** for producing them.
 
 Rendering needs a GL backend. Under WSL or a desktop session use `MUJOCO_GL=glfw`; on a
 headless machine with an NVIDIA driver use `MUJOCO_GL=egl`.
 
 ```bash
-MUJOCO_GL=glfw python main.py --viewer
+MUJOCO_GL=glfw python main.py --weights runs/.../weights/best.pt
 ```
 
 ### The arm
@@ -177,12 +176,11 @@ than a board's worth.
 
 By default the set renders plain, which is what you want for training images.
 
-The optional `--markers` flag puts a coloured disc on each piece's crown. Those discs are
-what `MarkerPerception` reads piece *type* from, so they are what makes the camera → FEN loop
-work before a detector exists:
+`sim.camera_view --markers` puts a coloured disc on each piece's crown. Those discs are what
+`MarkerPerception` reads piece *type* from, so they are how the camera → FEN path works
+before a detector exists:
 
 ```bash
-python main.py --markers --perceive      # --perceive needs them, and says so if missing
 python -m sim.camera_view --markers
 ```
 
@@ -206,7 +204,7 @@ The same three knobs are on the command line, and the defaults live in
 `sim/board_layout.py`:
 
 ```bash
-python main.py --camera-azimuth 0 --camera-view    # side view, same tilt
+python main.py --weights ... --camera-azimuth 0    # side view, same tilt
 python -m sim.camera_view --azimuth 180
 ```
 
@@ -253,11 +251,9 @@ follow.
 ### Watching the camera
 
 ```bash
-python main.py --camera-view                  # live window while the arm plays
-python main.py --camera-view --camera-plain   # raw image, no overlay
-python main.py --camera-view --camera-homography   # add the flattened board
-python main.py --camera-save frames/          # one annotated frame per move
-python -m sim.camera_view --fen "..." --out shot.png   # a single still
+python main.py --weights ... --camera-view                      # live window
+python main.py --weights ... --camera-view --camera-homography  # + flattened board
+python -m sim.camera_view --fen "..." --out shot.png            # a single still
 python -m sim.camera_view --homography --out shot.png
 ```
 
@@ -345,7 +341,7 @@ model = YOLO("runs/.../weights/best.pt")
 pieces stand in front of one another, and a projected box would happily label a piece that is
 entirely hidden behind another. MuJoCo can render per-pixel geometry IDs, so the boxes bound
 the pixels that actually belong to each piece — about 58% of the area a projected box would
-claim — and anything with fewer than `--min-pixels` visible is dropped. `sim.selftest`
+claim — and anything too small to see is dropped. `sim.selftest`
 cross-checks the two independently: whatever segmentation finds must lie inside the
 projection.
 
@@ -382,8 +378,7 @@ Once you have weights, the robot can play from them through the project's own
 `core.ChessBoard` pipeline:
 
 ```bash
-python main.py --perceive --detector yolo \
-       --weights runs/.../weights/best.pt --camera-azimuth 0
+python main.py --weights runs/.../weights/best.pt --camera-azimuth 0
 ```
 
 `sim/perception.py`'s `YoloPerception` wraps `ChessBoard`, so the weights, the class
@@ -459,10 +454,10 @@ the mapped point sits from the centre of its square, against a 28.5 mm half-squa
 
 ### What a single image cannot tell you
 
-`--perceive` plays from what the camera sees, but a photograph only shows where the pieces
-are. Whose turn it is, who may still castle, and whether a pawn just ran past an en-passant
-square are not visible in any image; those four FEN fields come from the game record. That
-split is inherent to a camera-driven robot, not an artifact of the simulation.
+`main.py` plays from what the camera sees, but a photograph only shows where the pieces are.
+Whose turn it is, who may still castle, and whether a pawn just ran past an en-passant square
+are not visible in any image; those four FEN fields come from the game record. That split is
+inherent to a camera-driven robot, not an artifact of the simulation.
 
 ### Layout
 

@@ -181,9 +181,6 @@ def main(argv=None):
                         "positions are ones the model has not seen")
     p.add_argument("--conf", type=float, default=0.25,
                    help="minimum detection confidence to accept")
-    p.add_argument("--sparse-fraction", type=float, default=0.35,
-                   help="share of positions that are scattered pieces rather "
-                        "than positions from a game")
     p.add_argument("--azimuth", type=float, default=DEPLOY_VIEW.azimuth,
                    help="side-view azimuth to evaluate at (default 0, the "
                         "angle the robot works from)")
@@ -194,18 +191,13 @@ def main(argv=None):
                    help="sample only the --azimuth side, or that side and the "
                         "one 180 degrees opposite")
     p.add_argument("--device", default=None, help="e.g. cpu or 0")
-    p.add_argument("--no-base-correction", action="store_true",
-                   help="map the raw bottom-centre of each box, without "
-                        "stepping back to the centre of the base")
     args = p.parse_args(argv)
 
     view = DS.ViewConfig(azimuth=args.azimuth,
                          azimuth_jitter=args.azimuth_jitter,
                          both_sides=args.sides == "both")
     stats = evaluate(args.weights, args.positions, args.img_size, args.seed,
-                     args.conf, args.sparse_fraction, view=view,
-                     correct_base=not args.no_base_correction,
-                     device=args.device)
+                     args.conf, view=view, device=args.device)
     print(f"evaluated at azimuth {args.azimuth:g} +/- {args.azimuth_jitter:g} deg")
     report(stats)
 

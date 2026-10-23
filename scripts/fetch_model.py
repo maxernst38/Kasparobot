@@ -7,6 +7,7 @@ the repository.  Pass the asset URL, or set KASPAROBOT_MODEL_URL:
     python scripts/fetch_model.py https://github.com/<user>/Kasparobot/releases/download/v1/Kasparobot.pt
 """
 
+import argparse
 import os
 import pathlib
 import sys
@@ -35,14 +36,24 @@ def fetch(url, dest=DEST):
     return dest
 
 
+def build_parser():
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("url", nargs="?", default=None,
+                   help=f"release asset URL (default: ${ENV_VAR})")
+    p.add_argument("--dest", default=DEST, type=pathlib.Path,
+                   help=f"where to write the weights (default: {DEST})")
+    return p
+
+
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
-    url = argv[0] if argv else os.environ.get(ENV_VAR)
+    args = build_parser().parse_args(argv)
+    url = args.url or os.environ.get(ENV_VAR)
     if not url:
-        print(__doc__.strip())
-        print(f"\nNo URL given and ${ENV_VAR} is unset.")
+        print(f"No URL given and ${ENV_VAR} is unset.\n"
+              f"Pass a release asset URL, or see model/README.md.")
         return 2
-    fetch(url)
+    fetch(url, args.dest)
     return 0
 
 

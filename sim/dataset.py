@@ -352,8 +352,6 @@ def main(argv=None):
     p.add_argument("--sparse-fraction", type=float, default=0.35,
                    help="share of frames that are scattered pieces rather than "
                         "positions from a game (0 disables)")
-    p.add_argument("--min-pixels", type=int, default=48,
-                   help="drop a piece whose visible area is smaller than this")
     p.add_argument("--azimuth", type=float, default=0.0,
                    help="base side-view azimuth; 0 and 180 are the side views")
     p.add_argument("--azimuth-jitter", type=float, default=12.0,
@@ -385,8 +383,7 @@ def main(argv=None):
                       distance_jitter=args.distance_jitter)
     out = generate(args.out, args.train, args.val, args.img_size, args.seed, view,
                    sparse_fraction=args.sparse_fraction,
-                   min_pixels=args.min_pixels, yolo=not args.no_yolo,
-                   hide_arm=args.hide_arm)
+                   yolo=not args.no_yolo, hide_arm=args.hide_arm)
     print("labels:", out / "labels.csv")
     print("frames:", out / "frames.csv")
     if args.preview:
